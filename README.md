@@ -1,6 +1,5 @@
-![Logo](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/th5xamgrr6se0x5ro4g6.png)
+![Logo](https://github.com/Vinermy/ad-infinitum/blob/main/branding/IMG/NAME%20COLORFUl.png?raw=true)
 
-[![CI](https://github.com//ad-infinitum/workflows/CI/badge.svg)](https://github.com//ad-infinitum/actions)
 [![AGPL License](https://img.shields.io/badge/license-GNU%20AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 ![AGPL License](https://img.shields.io/github/last-commit/Vinermy/Ad-Infinitum)
 
