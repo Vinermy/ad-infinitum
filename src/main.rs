@@ -1,3 +1,4 @@
+#![feature(exclusive_range_pattern)]
 // Ad Infinitum - a 4x strategy set in a procedurally generated galaxy
 // Copyright (C) 2024 Egor Kosachev
 //
@@ -26,6 +27,7 @@ pub mod config;
 pub mod mode;
 pub mod tui;
 pub mod utils;
+mod game;
 
 use clap::Parser;
 use cli::Cli;
