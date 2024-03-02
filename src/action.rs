@@ -21,6 +21,8 @@ use serde::{
   Deserialize, Serialize,
 };
 use strum::Display;
+use crate::game::body::Body;
+use crate::game::system::System;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Display, Deserialize)]
 pub enum Action {
@@ -33,4 +35,6 @@ pub enum Action {
   Refresh,
   Error(String),
   Help,
+  MoveSystemTreeSelectionUp,
+  MoveSystemTreeSelectionDown,
 }

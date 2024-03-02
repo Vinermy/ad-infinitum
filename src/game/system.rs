@@ -16,49 +16,62 @@
 
 use crate::game::body::{Body, StarType};
 use rand::Rng;
+use crate::game::body::PlanetZone::{HabitableZone, InnerRing, OuterRing};
+
+#[derive(Clone)]
 pub struct System {
-    pub bodies: Body,
+    pub bodies: Vec<Body>,
+    pub star: Body,
     pub name: String,
 }
 
 impl System {
     pub fn generate() -> Self {
         let mut rng = rand::thread_rng();
-        let star = Body::generate_star();
+        let mut star = Body::generate_star();
 
-        let star_roche_limit = star.radius * 0.8064;
+        let star_roche_limit = star.radius * 1.6;
 
         let body_count = rng.gen_range(1..=10);
 
-        let mut body_orbit_radii: Vec<f32> = Vec::new();
-        let mut body_masses: Vec<f32> = Vec::new();
-        let mut satellites: Vec<Vec<i32>> = Vec::new();
+        let mut planets: Vec<Body> = Vec::new();
 
-        for i in 1..=body_count {
-            body_orbit_radii.push(rng.gen_range(2.9..=20.0).ln() + star_roche_limit);
-            body_masses.push(rng.gen_range(2.9..=1.57 * 10 ** 142).ln() * 5.97 * 10 ** 12);
-        }
-
-        for i in 0..=body_count-1 {
-
-            // Calculate radius of the Hill sphere
-            let hill_sphere_radius: f32 = body_orbit_radii[i] * (body_masses[i] /
-                (3 * (body_masses[i] + star.mass))).cbrt();
-
-            for j in 0..=body_count-1 {
-                // Check if radius is bigger than difference in orbit radius
-                let distance = (body_orbit_radii[i] - body_orbit_radii[j]).abs();
-
-                if distance < hill_sphere_radius {
-                    // If so, make the lighter body a satellite of the larger body
-                    satellites.push(vec![i, j]);
-                }
+        match body_count {
+            1..=3 => {
+                planets.append(&mut Body::generate_planet_with_count(&HabitableZone, 1));
+                planets.append(&mut Body::generate_planet_with_count(&OuterRing, body_count - 1));
             }
+            4..=5 => {
+                planets.append(&mut Body::generate_planet_with_count(&InnerRing, 1));
+                planets.append(&mut Body::generate_planet_with_count(&HabitableZone, 1));
+                planets.append(&mut Body::generate_planet_with_count(&OuterRing, body_count - 2));
+            }
+            6..=7 => {
+                planets.append(&mut Body::generate_planet_with_count(&InnerRing, 1));
+                planets.append(&mut Body::generate_planet_with_count(&HabitableZone, 2));
+                planets.append(&mut Body::generate_planet_with_count(&OuterRing, body_count - 3));
+            }
+            8..=10 => {
+                planets.append(&mut Body::generate_planet_with_count(&InnerRing, 2));
+                planets.append(&mut Body::generate_planet_with_count(&HabitableZone, 2));
+                planets.append(&mut Body::generate_planet_with_count(&OuterRing, body_count - 4));
+            }
+
+            _ => unreachable!()
+        }
+        
+        let mut bodies = Vec::new();
+        
+        for mut planet in planets {
+            planet.orbit_radius = Some(rng.gen_range(2.9..=20.0) * 10.0f32.powi(10) + star_roche_limit);
+            planet.orbit_period = Some(f32::sqrt(planet.orbit_radius.unwrap().powi(2) / 7.5));
+            bodies.push(planet);
         }
 
         System {
-            bodies: star,
-            name: "".to_string(),
+            bodies: bodies.clone(),
+            star,
+            name: "Not solar system".to_string(),
         }
     }
 }

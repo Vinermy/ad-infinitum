@@ -15,16 +15,19 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::fmt::{Display, Formatter};
-use rand::Rng;
+use std::fs;
+use std::ops::Deref;
+use rand::{Rng, thread_rng};
+use rand::seq::IndexedRandom;
+use ratatui::style::Color;
 
+#[derive(Clone)]
 pub enum BodyType {
     Star(StarType),
     Planet(PlanetType),
-    Moon,
-    Ring,
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub enum StarType {
     O,
     B,
@@ -35,6 +38,7 @@ pub enum StarType {
     M,
 }
 
+#[derive(Clone)]
 pub enum PlanetType {
     AsteroidRing,
     Earthlike,
@@ -44,37 +48,57 @@ pub enum PlanetType {
     GasGiant,
 }
 
+impl Into<Color> for BodyType {
+    fn into(self) -> Color {
+        match self {
+            BodyType::Planet(PlanetType::AsteroidRing) => { Color::Rgb(100, 100, 100) }
+            BodyType::Planet(PlanetType::Earthlike) => { Color::LightBlue }
+            BodyType::Planet(PlanetType::Ice) => { Color::LightCyan }
+            BodyType::Planet(PlanetType::Rock) => { Color::DarkGray }
+            BodyType::Planet(PlanetType::Desert) => { Color::LightYellow }
+            BodyType::Planet(PlanetType::GasGiant) => { Color::LightRed }
+
+            BodyType::Star(StarType::O) => { Color::Indexed(27) }
+            BodyType::Star(StarType::B) => { Color::Indexed(33) }
+            BodyType::Star(StarType::A) => { Color::Indexed(195) }
+            BodyType::Star(StarType::F) => { Color::Indexed(231) }
+            BodyType::Star(StarType::G) => { Color::Indexed(230) }
+            BodyType::Star(StarType::K) => { Color::Indexed(216) }
+            BodyType::Star(StarType::M) => { Color::Indexed(160) }
+        }
+    }
+}
+
+#[derive(Clone)]
 pub enum PlanetZone {
     InnerRing,
     HabitableZone,
     OuterRing,
 }
 
-impl From<StarType> for char {
-    fn from(star_type: StarType) -> char {
-        match star_type {
-            StarType::O => { 'O' }
-            StarType::B => { 'B' }
-            StarType::A => { 'A' }
-            StarType::F => { 'F' }
-            StarType::G => { 'G' }
-            StarType::K => { 'K' }
-            StarType::M => { 'M' }
+impl StarType {
+    fn to_str(&self) -> String {
+        match self {
+            StarType::O => { "O".to_owned() }
+            StarType::B => { "B".to_owned() }
+            StarType::A => { "A".to_owned() }
+            StarType::F => { "F".to_owned() }
+            StarType::G => { "G".to_owned() }
+            StarType::K => { "K".to_owned() }
+            StarType::M => { "M".to_owned() }
         }
     }
 }
 
-pub struct Orbit {
-    pub radius: f32,
-    pub period: f32,
-    pub body: Body
-}
+#[derive(Clone)]
 pub struct Body {
     pub name: String,
     pub kind: BodyType,
     pub radius: f32,
     pub mass: f32,
-    pub children: Vec<Orbit>,
+    pub orbit_radius: Option<f32>,
+    pub orbit_period: Option<f32>,
+    pub satellites: Vec<Body>,
 }
 
 impl Body {
@@ -102,7 +126,7 @@ impl Body {
                 StarType::K => { 0.45..=0.800 }
                 StarType::M => { 0.08..=0.450 }
             }
-        ) * 1.98 * 10 ** 18;
+        ) * 1.98 * 10.0f32.powi(18);
 
         let radius: f32 = rng.gen_range(
             match class {
@@ -114,20 +138,22 @@ impl Body {
                 StarType::K => { 0.70..=0.960 }
                 StarType::M => { 0.10..=0.700 }
             }
-        ) * 6.957 * 10 ** 5;
+        ) * 6.957 * 10.0f32.powi(5);
 
-        let name = format!("{}-{}", char::from(&class), rng.gen_range(10000..=999999)).to_owned();
+        let name = format!("{}-{}", class.to_str(), rng.gen_range(10000..=999999)).to_owned();
 
         Body {
             name,
             kind: BodyType::Star(class),
             radius,
             mass,
-            children: vec![],
+            orbit_radius: None,
+            orbit_period: None,
+            satellites: Vec::new(),
         }
     }
 
-    pub fn generate_planet(zone: PlanetZone) -> Self {
+    pub fn generate_planet(zone: &PlanetZone) -> Self {
         let mut rng = rand::thread_rng();
 
         #[rustfmt::skip]
@@ -152,19 +178,70 @@ impl Body {
 
         let radius = match planet_type {
             PlanetType::AsteroidRing => { -1.0 }
-            PlanetType::Earthlike => { rng.gen_range(7.0..=17.0) * 1000 }
-            PlanetType::Ice => { rng.gen_range(1.0..=10.0) * 1000 }
-            PlanetType::Rock => { rng.gen_range(1.0..=10.0) * 1000 }
-            PlanetType::Desert => { rng.gen_range(4.0..=14.0) * 1000 }
-            PlanetType::GasGiant => { rng.gen_range(2.0..=18.0) * 10000 }
+            PlanetType::Earthlike => { rng.gen_range(7.0..=17.0) * 1000.0 }
+            PlanetType::Ice => { rng.gen_range(1.0..=10.0) * 1000.0 }
+            PlanetType::Rock => { rng.gen_range(1.0..=10.0) * 1000.0 }
+            PlanetType::Desert => { rng.gen_range(4.0..=14.0) * 1000.0 }
+            PlanetType::GasGiant => { rng.gen_range(2.0..=18.0) * 10000.0 }
+        } / 2.0 * 1000.0;
+
+        let density = match planet_type {
+            PlanetType::GasGiant => { rng.gen_range(0.7..=1.6) * 1000.0 }
+            _ => { rng.gen_range(3.5..=5.4) * 1000.0 }
         };
+        
+        let mass = 4.0 * std::f32::consts::PI * f32::powi(radius, 2) * density;
+
+        let file_contents: String = fs::read_to_string("./assets/system_namelist.txt").unwrap();
+        let names: Vec<&str> = file_contents.split("\n").collect();
+        let name: &str = *names.choose(&mut thread_rng()).unwrap();
 
         Body {
-            name: String::from("Not an Earth"),
+            name: String::from(name),
             kind: BodyType::Planet(planet_type),
             radius,
-            mass: rng.gen_range(2.9..=1.57 * 10 ** 142).ln() * 5.97 * 10 ** 24,
-            children: vec![],
+            mass,
+
+            orbit_radius: None,
+            orbit_period: None,
+            satellites: Vec::new(),
         }
+    }
+
+    pub fn generate_planet_with_count(planet_zone: &PlanetZone, count: i32) -> Vec<Body> {
+        let mut res: Vec<Body> = Vec::new();
+        for i in 0..count {
+            res.push(Self::generate_planet(planet_zone));
+        }
+        res
+    }
+
+    fn get_class_as_string(&self) -> String {
+        match self.clone().kind {
+            BodyType::Star(class) => {
+                String::from(class.to_str() + " class star")
+            }
+            BodyType::Planet(kind) => {
+                match kind {
+                    PlanetType::AsteroidRing => { String::from("Asteroid ring") }
+                    PlanetType::Earthlike => { String::from("Earthlike planet") }
+                    PlanetType::Ice => { String::from("Frozen planet") }
+                    PlanetType::Rock => { String::from("Rocky planet") }
+                    PlanetType::Desert => { String::from("Deserted planet") }
+                    PlanetType::GasGiant => { String::from("Gas giant") }
+                }
+            }
+        }
+    }
+
+    pub fn make_info(&self) -> Vec<String> {
+        let mut res: Vec<String> = Vec::new();
+        res.push(format!("Name: {}", self.name).to_owned());
+        res.push(format!("Mass: {:.3e} kg", self.mass).to_owned());
+        res.push(format!("Radius: {:.3e} m", self.radius).to_owned());
+        res.push(format!("Type: {}", self.get_class_as_string()));
+        res.push(format!("Orbit radius: {:.3e} km", self.orbit_radius.unwrap_or(0.0)));
+
+        res
     }
 }
