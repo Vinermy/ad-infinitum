@@ -52,11 +52,17 @@ impl SystemTree {
     fn move_selection_up(&mut self) {
         if self.selected_row != 0 {
             self.selected_row -= 1;
+        } else {
+            self.selected_row = self.system_displayed.bodies.len()
         }
     }
 
     fn move_selection_down(&mut self) {
-        self.selected_row += 1;
+        if self.system_displayed.bodies.len() == self.selected_row {
+            self.selected_row = 0
+        } else { 
+            self.selected_row += 1
+        }
     }
 
     fn update_tree(&mut self, new_system: System) {
