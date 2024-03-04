@@ -8,6 +8,9 @@
 __Ad Infinitum__ _(latin for "Again and again, to infinity")_ is a
 project with a goal of creating a TUI-based 4X game, set in a procedurally-generated galaxy.
 
+## 🔗 Links
+[Discord server](https://discord.gg/aBF4KSsPBn)
+
 
 ## Roadmap
 
